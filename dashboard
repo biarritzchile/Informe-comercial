@@ -1,0 +1,67 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+
+# Configuración de página
+st.set_page_config(page_title="Dashboard Ventas Getnet", layout="wide")
+
+# Estilo personalizado (Colores Santander/Getnet)
+st.markdown("""
+    <style>
+    .main { background-color: #f5f5f5; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; border-left: 5px solid #EC0000; }
+    h1, h2, h3 { color: #EC0000; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Cargar Datos
+@st.cache_data
+def load_data():
+    df = pd.read_csv('VENTAS FEBRERO 2026.xlsx - VENTAS FEBRERO 2026.csv')
+    df['FechaVenta'] = pd.to_datetime(df['FechaVenta'])
+    return df
+
+try:
+    df = load_data()
+
+    # Título y Logo (Simulado con texto)
+    st.title("🚀 Getnet | Gestión de Ventas Febrero 2026")
+    
+    # --- SIDEBAR (FILTROS) ---
+    st.sidebar.header("Filtros de Búsqueda")
+    supervisor = st.sidebar.multiselect("Seleccionar Supervisor:", options=df["Supervisor"].unique(), default=df["Supervisor"].unique())
+    estado = st.sidebar.multiselect("Estado de Venta:", options=df["EstadoVenta"].unique(), default=df["EstadoVenta"].unique())
+
+    df_filtered = df[(df["Supervisor"].isin(supervisor)) & (df["EstadoVenta"].isin(estado))]
+
+    # --- MÉTRICAS CLAVE ---
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Ventas", len(df_filtered))
+    col2.metric("POS Entregados", df_filtered["Cantidad  POS"].sum())
+    col3.metric("Supervisores", df_filtered["Supervisor"].nunique())
+    col4.metric("Ventas Cerradas", len(df_filtered[df_filtered["EstadoVenta"] == "CERRADA"]))
+
+    st.divider()
+
+    # --- GRÁFICOS ---
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.subheader("Ventas por Estado")
+        fig_estado = px.pie(df_filtered, names='EstadoVenta', color_discrete_sequence=['#EC0000', '#333333', '#757575'])
+        st.plotly_chart(fig_estado, use_container_width=True)
+
+    with c2:
+        st.subheader("Top Promotores (Ventas)")
+        top_promotores = df_filtered['Promotor'].value_counts().reset_index().head(10)
+        fig_prom = px.bar(top_promotores, x='count', y='Promotor', orientation='h', 
+                          color_discrete_sequence=['#EC0000'])
+        st.plotly_chart(fig_prom, use_container_width=True)
+
+    # --- TABLA DETALLE ---
+    st.subheader("📋 Detalle de Operaciones")
+    st.dataframe(df_filtered[['FechaVenta', 'Supervisor', 'Promotor', 'EstadoVenta', 'Banco', 'SERIE POS']], use_container_width=True)
+
+except Exception as e:
+    st.error(f"Error al cargar los datos: {e}")
+    st.info("Asegúrate de que el archivo CSV esté en la misma carpeta que este script.")
